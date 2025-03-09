@@ -7,7 +7,7 @@ Created on Sat Mar  8 23:18:32 2025
 
 import numpy as np
 
-M = 1.3 #W/m^2
+M = 1.3*58.2 #W/m^2
 f_cl = 1.33
 I_cl = 0.18 #m^2K/W
 p_z = 13.2 * 10**2 #Pa
@@ -33,6 +33,20 @@ def temp_obl(M, W, I_cl, f_cl, t_cl, t_r, a_k, t_z):
     a = 3.96 * 10**(-8) * f_cl * a1
     return 35.7 - 0.0257 * (M - W) - I_cl * (a + f_cl * a_k * (t_cl - t_z))
 
+def PMV(M, W, f_cl, t_cl, t_r, t_z, a_k, p_z):
+    a = (0.303 * np.exp(-0.036 * M) + 0.028)
+    b1 = ((t_cl + 273)**4) - ((t_r + 273)**4)
+    b = (M - W) - 3.96 * 10**(-8) * f_cl * b1 
+    c = a_k * f_cl * (t_cl - t_z)
+    d = 3.05 * 10**(-3) * (5733 - 6.99 * (M - W) - p_z)
+    e = 0.42 * ((M - W) - 58.15)
+    f = 0.0014 * M * (34 - t_z)
+    g = 1.7 * 10**(-5) * M * (5867 - p_z)
+    return a*(b-c-d-e-f-g)
+
+def PPD(PMV):
+    return 100 - 95*np.exp(-0.03353 * (PMV**4) - 0.2179 * PMV**2)
+
 
 #Začetni približek t_cl
 t_cl_0 = 23 #°C
@@ -44,7 +58,7 @@ min_resid = 0.001
 
 it = 0
     
-residuals = {"W":[], "it":[]}
+residuals = {"W":[], "t":[], "it":[]}
 
 while it < max_iter:
     it += 1
@@ -60,12 +74,16 @@ while it < max_iter:
     W_new = bilanca(M, W_0, f_cl, t_cl_0, t_r, a_k, t_z, p_z)
     
     
+    
     W_resid = np.abs(W_0 - W_new)
+    #t_resid = np.abs(t_cl_0-t_cl_new)
     
     residuals["W"].append(W_resid)
+    #residuals["t"].append(t_resid)
     residuals["it"].append(it)
     
     W_0 = W_new
+    #t_cl_0 = t_cl_new
 
     if W_resid <= min_resid:
         break
@@ -87,4 +105,16 @@ plt.show
 print(f"Efektivna mehanska moč: {np.round(W_new, 4)} W/m^2")
 print(f"Ostanek: {np.round(W_resid, 5)}")
 print(f"Površinska temperatura obleke: {np.round(t_cl_new, 4)} °C")
+
+
+
+PMV_res = PMV(M, W_new, f_cl, t_cl_new, t_r, t_z, a_k, p_z)
+
+PPD_res = PPD(PMV_res)
+
+
+print(f"PMV: {np.round(PMV_res, 4)}")
+print(f"PPD: {np.round(PPD_res, 4)}")
+
+
 
